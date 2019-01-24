@@ -21,6 +21,7 @@ int ONT_ReadInt32Param(char *args);
 long long ONT_ReadInt64Param(char * args);
 char * ONT_ReadStringParam(char * args);
 char ** ONT_ReadStringArrayParam(char * args);
+char ** ONT_ReadNestedArrayParam(char *args);
 void ONT_JsonUnmashalInput(void * addr,int size,char * arg);
 char * ONT_JsonMashalResult(void * val,char * types,int succeed);
 char * ONT_JsonMashalParams(void * s);
@@ -30,6 +31,7 @@ char * ONT_GetSelfAddress();
 char * ONT_CallContract(char * address,char * contractCode,char * method,char * args);
 char * ONT_MarshalNativeParams(void * s);
 char * ONT_MarshalNeoParams(void * s);
+void ONT_ResetParamIdx();
 
 //Runtime apis
 int ONT_Runtime_CheckWitness(char * address);
@@ -315,6 +317,29 @@ char * allowance(owner, spender)
 
 }
 
+char * transferMulti(char ** states)
+{
+    int n = arrayLen(states);
+    ContractLogError(n);
+
+    for(int i=0; i<n;i++)
+    {
+        ONT_ResetParamIdx();
+        char ** state = ONT_ReadStringArrayParam(states[i]);
+        char * from = state[0];
+        ContractLogError(from);
+        char * to = state[1];
+        ContractLogError(to);
+
+        long long amount = Atoi64(state[2]);
+        char * res = transfer(from,to,amount);
+        if (strcmp(res, "true") != 0){
+            ONT_Runtime_RaiseException("transfer failde");
+        }
+    }
+    return "true";
+}
+
 
 
 char* invoke(char * method,char * args)
@@ -353,6 +378,13 @@ char* invoke(char * method,char * args)
 
         return transfer(fromAddr, toAddr,amount);
     }
+
+    if (strcmp(method, "transferMulti") == 0)
+    {
+        char ** states = ONT_ReadNestedArrayParam(args);
+        return transferMulti(states);
+    }
+
     if (strcmp(method, "approve") == 0)
     {
         char * owner = ONT_ReadStringParam(args);
